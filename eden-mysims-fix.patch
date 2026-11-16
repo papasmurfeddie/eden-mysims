@@ -1,0 +1,34 @@
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index ccc5b3c..8fa8bd4 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -139,7 +139,8 @@ android {
+                 applicationIdSuffix = ".nightly"
+                 manifestPlaceholders += mapOf("appNameSuffix" to " Nightly")
+             } else {
+-                manifestPlaceholders += mapOf("appNameSuffix" to "")
++                applicationIdSuffix = ".mysims"
++                manifestPlaceholders += mapOf("appNameSuffix" to " MySims")
+             }
+ 
+             isMinifyEnabled = true
+diff --git a/src/shader_recompiler/frontend/maxwell/translate/impl/texture_query.cpp b/src/shader_recompiler/frontend/maxwell/translate/impl/texture_query.cpp
+index 39af625..ba45996 100644
+--- a/src/shader_recompiler/frontend/maxwell/translate/impl/texture_query.cpp
++++ b/src/shader_recompiler/frontend/maxwell/translate/impl/texture_query.cpp
+@@ -23,7 +23,14 @@ IR::Value Query(TranslatorVisitor& v, const IR::U32& handle, Mode mode, IR::Reg
+         const IR::U32 lod{v.X(src_reg)};
+         return v.ir.ImageQueryDimension(handle, lod, skip_mips);
+     }
+-    case Mode::TextureType:
++    case Mode::TextureType: {
++        // TXQ.TEX_HEADER_TEXTURE_TYPE: component z holds the sample count.
++        // The real value isn't available here, so report a single sample. MSAA
++        // resolve shaders (e.g. MySims: Cozy Bundle) then copy sample 0 instead
++        // of failing to compile, which left the screen black.
++        const IR::U32 zero{v.ir.Imm32(0)};
++        return v.ir.CompositeConstruct(zero, zero, v.ir.Imm32(1), zero);
++    }
+     case Mode::SamplePos:
+     default:
+         throw NotImplementedException("Mode {}", mode);
