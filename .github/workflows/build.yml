@@ -11,6 +11,11 @@ jobs:
       - name: Get this repo (contains the patch)
         uses: actions/checkout@v4
 
+      - name: Install build tools Eden needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslang-tools autoconf automake libtool nasm pkg-config
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -34,7 +39,19 @@ jobs:
       - name: Build APK
         run: |
           cd eden
-          TARGET=standard TYPE=Release sh .ci/android/build.sh
+          set -o pipefail
+          TARGET=standard TYPE=Release sh .ci/android/build.sh 2>&1 | tee ../build-log.txt
+
+      - name: Show errors (only if the build failed)
+        if: failure()
+        run: grep -n -B2 -A12 -E "CMake Error|error:|FAILED:" build-log.txt | head -150 || true
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-log.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
